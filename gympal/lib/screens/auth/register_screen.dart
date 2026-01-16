@@ -18,15 +18,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   String _selectedGender = 'Male';
+  bool _isFormValid = false;
+
+  void _checkFormValidity() {
+    final isValid = 
+      _validateName(_nameController.text) == null &&
+      _validateAge(_ageController.text) == null &&
+      _validateUsername(_usernameController.text) == null &&
+      _validatePassword(_passwordController.text) == null;
+    
+    if (isValid != _isFormValid) {
+      setState(() => _isFormValid = isValid);
+    }
+  }
+
+  String? _validateName(String? val) {
+    if (val == null || val.isEmpty) return "Full name is required";
+    if (val.length < 3) return "Full name must be at least 3 characters";
+    if (val.length > 50) return "Full name must be at most 50 characters";
+    if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(val)) return "Only letters and spaces are allowed";
+    if (val.startsWith(' ') || val.endsWith(' ')) return "Cannot start or end with a space";
+    return null;
+  }
+
+  String? _validateUsername(String? val) {
+    if (val == null || val.isEmpty) return "Username is required";
+    if (val.length < 4) return "Username must be 4–20 characters";
+    if (val.length > 20) return "Username must be 4–20 characters";
+    if (!RegExp(r"^[a-z0-9_]+$").hasMatch(val)) return "Only lowercase letters, numbers, and underscore allowed";
+    if (val.contains(' ')) return "No spaces allowed";
+    return null;
+  }
+
+  String? _validateAge(String? val) {
+    if (val == null || val.isEmpty) return "Age is required";
+    final age = int.tryParse(val);
+    if (age == null) return "Age must be a number";
+    if (age < 13 || age > 80) return "Age must be between 13 and 80";
+    return null;
+  }
+
+  String? _validatePassword(String? val) {
+    if (val == null || val.isEmpty) return "Password is required";
+    if (val.length < 8) return "Password must be at least 8 characters";
+    if (!RegExp(r'(?=.*[A-Z])').hasMatch(val)) return "Must include uppercase letter";
+    if (!RegExp(r'(?=.*[a-z])').hasMatch(val)) return "Must include lowercase letter";
+    if (!RegExp(r'(?=.*[0-9])').hasMatch(val)) return "Must include a number";
+    if (val.contains(' ')) return "No spaces allowed";
+    return null;
+  }
 
   void _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       final newUser = UserModel(
-        fullName: _nameController.text,
-        age: int.parse(_ageController.text),
+        fullName: _nameController.text.trim(),
+        age: int.parse(_ageController.text.trim()),
         gender: _selectedGender,
-        username: _usernameController.text,
-        password: _passwordController.text,
+        username: _usernameController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -78,44 +127,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             child: Form(
               key: _formKey,
+              onChanged: _checkFormValidity,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextFormField(
                     controller: _nameController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: "Full Name",
                       labelStyle: const TextStyle(color: Color(0xFF6B7280)),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4A90E2),
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.red),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      helperText: "Min 3 chars, letters only",
                     ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return "Enter name";
-                      if (val.trim().length < 2) return "Name too short";
-                      if (val.trim().length > 50) return "Name too long";
-                      return null;
-                    },
+                    validator: _validateName,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -124,88 +149,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: TextFormField(
                           controller: _ageController,
                           keyboardType: TextInputType.number,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             labelText: "Age",
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF6B7280),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF4A90E2),
-                                width: 2,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Colors.red),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
+                            labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) return "Enter age";
-                            final age = int.tryParse(val);
-                            if (age == null) return "Invalid age";
-                            if (age < 10 || age > 120) return "Age must be 10-120";
-                            return null;
-                          },
+                          validator: _validateAge,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          initialValue: _selectedGender,
+                          value: _selectedGender,
                           items: ['Male', 'Female', 'Other']
-                              .map(
-                                (g) =>
-                                    DropdownMenuItem(value: g, child: Text(g)),
-                              )
+                              .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                               .toList(),
-                          onChanged: (val) =>
-                              setState(() => _selectedGender = val!),
+                          onChanged: (val) => setState(() => _selectedGender = val!),
                           decoration: InputDecoration(
                             labelText: "Gender",
-                            labelStyle: const TextStyle(
-                              color: Color(0xFF6B7280),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFD1D5DB),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF4A90E2),
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
+                            labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -214,104 +178,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _usernameController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: "Username",
+                      helperText: "4-20 chars, lowercase, numbers, _",
                       labelStyle: const TextStyle(color: Color(0xFF6B7280)),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4A90E2),
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.red),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return "Enter username";
-                      if (val.trim().length < 3) return "Username too short";
-                      if (val.trim().length > 20) return "Username too long";
-                      return null;
-                    },
+                    validator: _validateUsername,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       labelText: "Password",
+                      helperText: "Min 8 chars, 1 uppercase, 1 number",
                       labelStyle: const TextStyle(color: Color(0xFF6B7280)),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF4A90E2),
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.red),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    validator: (val) {
-                      if (val == null || val.isEmpty) return "Enter password";
-                      if (val.length < 6) return "Password must be at least 6 characters";
-                      return null;
-                    },
+                    validator: _validatePassword,
                   ),
                   const SizedBox(height: 24),
                   Consumer<AuthProvider>(
                     builder: (context, auth, _) {
                       return auth.isLoading
-                          ? const CircularProgressIndicator(
-                              color: Color(0xFF4A90E2),
-                            )
+                          ? const CircularProgressIndicator(color: Color(0xFF4A90E2))
                           : SizedBox(
                               width: double.infinity,
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: _handleRegister,
+                                onPressed: _isFormValid ? _handleRegister : null,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF4A90E2),
+                                  disabledBackgroundColor: Colors.grey[300],
                                   foregroundColor: Colors.white,
                                   elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
-                                child: const Text(
-                                  "Register",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                child: const Text("Register", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                               ),
                             );
                     },
