@@ -17,7 +17,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _ageController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _securityAnswerController = TextEditingController();
+  final _pinController = TextEditingController();
+  
   String _selectedGender = 'Male';
+  String _selectedSecurityQuestion = "What was your first pet's name?";
+  
+  final List<String> _securityQuestions = [
+    "What was your first pet's name?",
+    "What is your mother's maiden name?",
+    "What is your favorite color?",
+    "What city were you born in?",
+  ];
+
   bool _isFormValid = false;
 
   void _checkFormValidity() {
@@ -25,7 +37,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _validateName(_nameController.text) == null &&
       _validateAge(_ageController.text) == null &&
       _validateUsername(_usernameController.text) == null &&
-      _validatePassword(_passwordController.text) == null;
+      _validatePassword(_passwordController.text) == null &&
+      _validateAnswer(_securityAnswerController.text) == null &&
+      _validatePin(_pinController.text) == null;
     
     if (isValid != _isFormValid) {
       setState(() => _isFormValid = isValid);
@@ -68,6 +82,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  String? _validateAnswer(String? val) {
+    if (val == null || val.isEmpty) return "Answer is required";
+    return null;
+  }
+
+  String? _validatePin(String? val) {
+    if (val == null || val.isEmpty) return "PIN is required";
+    if (val.length != 4) return "PIN must be 4 digits";
+    if (int.tryParse(val) == null) return "PIN must be numeric";
+    return null;
+  }
+
   void _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       final newUser = UserModel(
@@ -76,6 +102,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         gender: _selectedGender,
         username: _usernameController.text.trim(),
         password: _passwordController.text.trim(),
+        securityQuestion: _selectedSecurityQuestion,
+        securityAnswer: _securityAnswerController.text.trim(),
+        pin: _pinController.text.trim(),
       );
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -199,6 +228,60 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     validator: _validatePassword,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Security Question
+                  DropdownButtonFormField<String>(
+                    value: _selectedSecurityQuestion,
+                    items: _securityQuestions.map((q) => DropdownMenuItem(
+                      value: q,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          q,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    )).toList(),
+                    onChanged: (val) => setState(() => _selectedSecurityQuestion = val!),
+                    decoration: InputDecoration(
+                      labelText: "Security Question",
+                      labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    isExpanded: true,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Security Answer
+                  TextFormField(
+                    controller: _securityAnswerController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    decoration: InputDecoration(
+                      labelText: "Security Answer",
+                      labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    validator: _validateAnswer,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // PIN
+                  TextFormField(
+                    controller: _pinController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    decoration: InputDecoration(
+                      labelText: "4-Digit PIN",
+                      helperText: "For quick recovery",
+                      labelStyle: const TextStyle(color: Color(0xFF6B7280)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      counterText: "",
+                    ),
+                    validator: _validatePin,
                   ),
                   const SizedBox(height: 24),
                   Consumer<AuthProvider>(
