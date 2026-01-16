@@ -9,7 +9,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/workout_provider.dart';
 import '../../providers/calorie_provider.dart';
 import '../../providers/progress_provider.dart';
-import '../../screens/progress/goal_settings_sheet.dart';
+
+import '../../widgets/charts/workout_bar_chart.dart';
+import '../../widgets/charts/detailed_calorie_chart.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -41,8 +43,8 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Consumer<CalorieProvider>(builder: (context, cp, _) {
-                return _buildStatsGrid(context, cp);
+              Consumer2<CalorieProvider, WorkoutProvider>(builder: (context, cp, wp, _) {
+                return _buildStatsGrid(context, cp, wp);
               }),
               const SizedBox(height: 24),
 
@@ -57,6 +59,12 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _buildWeeklyOverview(context),
+              const SizedBox(height: 24),
+
+              // Charts
+              const WorkoutBarChart(),
+              const SizedBox(height: 16),
+              const DetailedCalorieChart(),
               const SizedBox(height: 24),
 
               // Body Metrics (if available)
@@ -110,14 +118,8 @@ class HomeScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Theme.of(context).colorScheme.primary.withAlpha((0.1 * 255).round()),
-            child: Text(
-              user?.fullName.isNotEmpty == true ? user!.fullName[0].toUpperCase() : "?",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
-            ),
-          ),
+          // Profile Photo or Initial
+          _buildProfileAvatar(context, user),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -140,55 +142,49 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, CalorieProvider cp) {
+  Widget _buildProfileAvatar(BuildContext context, user) {
+    // Note: Profile photos work on mobile/desktop builds
+    // For web builds, we show the initial since File operations aren't supported
+    return CircleAvatar(
+      radius: 30,
+      backgroundColor: Theme.of(context).colorScheme.primary.withAlpha((0.1 * 255).round()),
+      child: Text(
+        user?.fullName.isNotEmpty == true ? user!.fullName[0].toUpperCase() : "?",
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid(BuildContext context, CalorieProvider cp, WorkoutProvider wp) {
+    final now = DateTime.now();
+    final todayWorkouts = wp.workouts.where((w) => 
+      w.date.year == now.year && w.date.month == now.month && w.date.day == now.day
+    ).toList();
+    
+    final workoutCount = todayWorkouts.length;
+    final exerciseCount = todayWorkouts.fold(0, (sum, w) => sum + w.exercises.length);
+
     return Row(
       children: [
         Expanded(
-          child: Stack(
-            children: [
-              _buildStatCard(context,
-                "Calories",
-                cp.totalCalories.toString(),
-                "/ ${cp.dailyGoal} kcal",
-                Icons.local_fire_department,
-                const Color(0xFFEF4444),
-              ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: InkWell(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                      ),
-                      builder: (_) => const GoalSettingsSheet(),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withAlpha((0.05 * 255).round()), blurRadius: 4),
-                      ],
-                    ),
-                    child: const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
-                  ),
-                ),
-              ),
-            ],
+          child: _buildStatCard(context,
+            "Calories",
+            cp.totalCalories.toString(),
+            "kcal",
+            Icons.local_fire_department,
+            const Color(0xFFEF4444),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(context,
             "Workouts",
-            "0",
-            "completed",
+            workoutCount.toString(),
+            "$exerciseCount exercises",
             Icons.fitness_center,
             const Color(0xFF4A90E2),
           ),

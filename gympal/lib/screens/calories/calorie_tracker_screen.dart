@@ -120,6 +120,55 @@ class CalorieTrackerScreen extends StatelessWidget {
                           ),
                         ),
                         Text("kcal", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha((0.6*255).round()), fontSize: 14)),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Progress Bar & Calories Left
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          child: Column(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: LinearProgressIndicator(
+                                  value: provider.dailyGoal > 0 
+                                      ? (provider.totalCalories / provider.dailyGoal).clamp(0.0, 1.0)
+                                      : 0.0,
+                                  minHeight: 10,
+                                  backgroundColor: Theme.of(context).colorScheme.primary.withAlpha((0.1*255).round()),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    provider.totalCalories > provider.dailyGoal 
+                                        ? Colors.red 
+                                        : Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    "${provider.dailyGoal - provider.totalCalories >= 0 ? provider.dailyGoal - provider.totalCalories : 0} kcal left",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: provider.totalCalories > provider.dailyGoal 
+                                          ? Colors.red 
+                                          : Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Goal: ${provider.dailyGoal} kcal",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context).colorScheme.onSurface.withAlpha((0.6*255).round()),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ],

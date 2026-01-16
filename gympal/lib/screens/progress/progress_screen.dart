@@ -143,13 +143,32 @@ class ProgressScreen extends StatelessWidget {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: const Color.fromRGBO(255,255,255,0.2), borderRadius: BorderRadius.circular(20)),
-                    child: Text(weightLeftText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(
+                      color: const Color.fromRGBO(255, 255, 255, 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      weightLeftText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 15),
-              LinearProgressIndicator(value: progressPercent, backgroundColor: const Color.fromRGBO(255,255,255,0.3), color: Colors.white),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  height: 12,
+                  child: LinearProgressIndicator(
+                    value: progressPercent,
+                    backgroundColor: const Color.fromRGBO(255, 255, 255, 0.3),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -297,15 +316,28 @@ class ProgressScreen extends StatelessWidget {
           itemCount: p.logs.take(5).length,
           itemBuilder: (ctx, i) {
             final log = p.logs[i];
-            final hasImage = log.photoPath != null && log.photoPath!.isNotEmpty;
+            
+            // Gather all images (old photoPath + new photoPaths)
+            final allImages = <String>[];
+            if (log.photoPath != null && log.photoPath!.isNotEmpty) {
+              allImages.add(log.photoPath!);
+            }
+            if (log.photoPaths != null) {
+              for (var path in log.photoPaths!) {
+                if (!allImages.contains(path)) {
+                  allImages.add(path);
+                }
+              }
+            }
 
             return Card(
-              margin: const EdgeInsets.only(top: 8),
+              margin: const EdgeInsets.only(top: 12),
               elevation: 0,
               color: Colors.white,
-              child: ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
                 onTap: () {
-                  // Navigate to Edit Screen
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -313,21 +345,56 @@ class ProgressScreen extends StatelessWidget {
                     ),
                   );
                 },
-                leading: Container(
-                   width: 50, height: 50,
-                   decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
-                   clipBehavior: Clip.hardEdge,
-                   child: hasImage
-                    ? Image.memory(
-                        base64Decode(log.photoPath!),
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, _, __) => const Icon(Icons.broken_image, size: 20, color: Colors.grey),
-                      )
-                    : const Icon(Icons.monitor_weight, color: Colors.blue),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (allImages.isNotEmpty)
+                      SizedBox(
+                        height: 150,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: allImages.length,
+                          itemBuilder: (context, imgIdx) {
+                            return Container(
+                              width: 150,
+                              margin: const EdgeInsets.only(right: 4),
+                              child: Image.memory(
+                                base64Decode(allImages[imgIdx]),
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, _, __) => const Icon(Icons.broken_image),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "${log.weight} kg",
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  log.notes.isNotEmpty ? log.notes : "No notes",
+                                  style: TextStyle(color: Colors.grey[600]),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.edit, size: 18, color: Colors.blue),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                title: Text("${log.weight} kg", style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(log.notes.isNotEmpty ? log.notes : "No notes"),
-                trailing: const Icon(Icons.edit, size: 16, color: Colors.grey),
               ),
             );
           },

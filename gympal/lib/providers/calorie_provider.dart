@@ -101,4 +101,60 @@ class CalorieProvider extends ChangeNotifier {
     final end = start.add(const Duration(days: 6));
     return totalCaloriesForRange(start, end);
   }
+
+  /// NEW: Daily totals for a range, returns Map<DayName, IntValue>
+  Map<DateTime, int> getDailyTotalsForRange(DateTime start, DateTime end) {
+    final box = HiveService.calorieBox;
+    final Map<DateTime, int> totals = {};
+
+    // Initialize with 0s for each day in range
+    for (int i = 0; i <= end.difference(start).inDays; i++) {
+      final date = start.add(Duration(days: i));
+      final dateKey = DateTime(date.year, date.month, date.day);
+      totals[dateKey] = 0;
+    }
+
+    for (var log in box.values) {
+      final d = log.date;
+      final dateKey = DateTime(d.year, d.month, d.day);
+      if (totals.containsKey(dateKey)) {
+        totals[dateKey] = (totals[dateKey] ?? 0) + log.calories;
+      }
+    }
+    
+    return totals;
+  }
+
+  /// NEW: Daily meal stats for a range, returns Map<DateTime, Map<String, int>>
+  Map<DateTime, Map<String, int>> getDailyMealStatsForRange(DateTime start, DateTime end) {
+    final box = HiveService.calorieBox;
+    final Map<DateTime, Map<String, int>> stats = {};
+
+    // Initialize with empty maps for each day in range
+    for (int i = 0; i <= end.difference(start).inDays; i++) {
+      final date = start.add(Duration(days: i));
+      final dateKey = DateTime(date.year, date.month, date.day);
+      stats[dateKey] = {
+        'Breakfast': 0,
+        'Lunch': 0,
+        'Dinner': 0,
+        'Snack': 0,
+      };
+    }
+
+    for (var log in box.values) {
+      final d = log.date;
+      final dateKey = DateTime(d.year, d.month, d.day);
+      if (stats.containsKey(dateKey)) {
+        // Normalize mealType
+        String type = log.mealType;
+        if (!stats[dateKey]!.containsKey(type)) {
+          type = 'Snack'; // Generic fallback if type is unexpected
+        }
+        stats[dateKey]![type] = (stats[dateKey]![type] ?? 0) + log.calories;
+      }
+    }
+    
+    return stats;
+  }
 }

@@ -45,4 +45,27 @@ class WorkoutProvider extends ChangeNotifier {
     await workout.delete();
     loadWorkouts();
   }
+
+  /// NEW: Count of workouts and exercises for each day in a range
+  Map<DateTime, Map<String, int>> getWorkoutStatsForRange(DateTime start, DateTime end) {
+    final Map<DateTime, Map<String, int>> stats = {};
+
+    // Initialize with 0s
+    for (int i = 0; i <= end.difference(start).inDays; i++) {
+      final date = start.add(Duration(days: i));
+      final dateKey = DateTime(date.year, date.month, date.day);
+      stats[dateKey] = {'workouts': 0, 'exercises': 0};
+    }
+
+    for (var w in _workouts) {
+      final d = w.date;
+      final dateKey = DateTime(d.year, d.month, d.day);
+      if (stats.containsKey(dateKey)) {
+        stats[dateKey]!['workouts'] = (stats[dateKey]!['workouts'] ?? 0) + 1;
+        stats[dateKey]!['exercises'] = (stats[dateKey]!['exercises'] ?? 0) + w.exercises.length;
+      }
+    }
+
+    return stats;
+  }
 }

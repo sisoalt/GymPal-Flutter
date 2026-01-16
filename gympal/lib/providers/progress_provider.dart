@@ -124,20 +124,15 @@ class ProgressProvider extends ChangeNotifier {
 
   // NEW: Edit Existing Log
   Future<void> editProgress(ProgressModel oldLog, double weight, String notes,
-      String? photoPath) async {
-    // We modify the Hive object directly
-    // Note: 'date' isn't usually edited to preserve history order, but you can add it if needed
-    // oldLog.date = newDate;
-
-    // Since HiveObject properties are final in our model, we might need to rely on
-    // replacing the object or using a model that allows updates.
-    // However, since we defined them as 'final' in the model, we can't set them directly.
-    // The workaround for Hive with final fields is to delete and re-add OR make fields non-final.
-    // Assuming you made them non-final in previous steps:
-
+      String? photoPath, List<String>? photoPaths) async {
     // If your model fields are final, we must replace the entry:
     final newLog = ProgressModel(
-        date: oldLog.date, weight: weight, notes: notes, photoPath: photoPath);
+      date: oldLog.date,
+      weight: weight,
+      notes: notes,
+      photoPath: photoPath,
+      photoPaths: photoPaths,
+    );
 
     // Replace in Hive
     final box = HiveService.progressBox;

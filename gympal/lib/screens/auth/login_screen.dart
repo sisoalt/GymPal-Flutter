@@ -18,6 +18,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isFormValid = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load remembered credentials
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final creds = auth.getRememberedCredentials();
+      if (creds['rememberMe'] == true) {
+        setState(() {
+          _usernameController.text = creds['username'];
+          _passwordController.text = creds['password'];
+          _rememberMe = true;
+        });
+        _checkFormValidity();
+      }
+    });
+  }
 
   void _checkFormValidity() {
     final isValid = 
@@ -53,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final error = await authProvider.login(
         _usernameController.text.trim(),
         _passwordController.text.trim(),
+        remember: _rememberMe,
       );
 
       if (error == null && mounted) {
@@ -60,8 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (_) => const MainLayout()),
         );
       } else if (mounted) {
-        _passwordController.clear(); // Clear password on failure
-        _checkFormValidity(); // Re-check validity after clearing
+        // Only clear password if it wasn't a "Remember Me" attempt that failed due to a potential state issue
+        // But for safety, keep the error message visible.
+        _checkFormValidity();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error ?? "Invalid username or password"),
@@ -102,8 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Icon(Icons.fitness_center, size: 64, color: Color(0xFF4A90E2)),
                   const SizedBox(height: 16),
                   const Text(
-                    'Gym Pal',
-                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
+                    'GYM PAL',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF222222),
+                      letterSpacing: 2,
+                      fontFamily: 'sans-serif',
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 6),
@@ -144,15 +171,33 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: _validatePassword,
                   ),
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: _rememberMe,
+                              onChanged: (val) => setState(() => _rememberMe = val ?? false),
+                              activeColor: const Color(0xFF4A90E2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text("Remember Me", style: TextStyle(color: Color(0xFF6B7280), fontSize: 14)),
+                        ],
                       ),
-                      child: const Text("Forgot Password?", style: TextStyle(color: Color(0xFF4A90E2))),
-                    ),
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                        ),
+                        child: const Text("Forgot Password?", style: TextStyle(color: Color(0xFF4A90E2))),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Consumer<AuthProvider>(

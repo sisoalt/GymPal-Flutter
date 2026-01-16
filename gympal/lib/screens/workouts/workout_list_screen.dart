@@ -1,12 +1,285 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert'; // For JSON
 import '../../providers/workout_provider.dart';
+import '../../data/services/notification_service.dart';
+import '../../data/services/hive_service.dart';
 import 'add_workout_screen.dart';
-import 'workout_detail_screen.dart'; // We create this next
+import 'workout_detail_screen.dart';
 
-class WorkoutListScreen extends StatelessWidget {
+class Reminder {
+  final int id;
+  final DateTime dateTime;
+  final String note;
+
+  Reminder({required this.id, required this.dateTime, required this.note});
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'dateTime': dateTime.toIso8601String(),
+        'note': note,
+      };
+
+  factory Reminder.fromJson(Map<String, dynamic> json) => Reminder(
+        id: json['id'],
+        dateTime: DateTime.parse(json['dateTime']),
+        note: json['note'],
+      );
+}
+
+class WorkoutListScreen extends StatefulWidget {
   const WorkoutListScreen({super.key});
+
+  @override
+  State<WorkoutListScreen> createState() => _WorkoutListScreenState();
+}
+
+class _WorkoutListScreenState extends State<WorkoutListScreen> {
+  List<Reminder> _reminders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminders();
+  }
+
+  void _loadReminders() {
+    final box = HiveService.settingsBox;
+    final List<dynamic>? stored = box.get('scheduled_reminders');
+    if (stored != null) {
+      setState(() {
+        _reminders = stored
+            .map((e) => Reminder.fromJson(jsonDecode(e)))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> _saveReminders() async {
+    final box = HiveService.settingsBox;
+    final List<String> data = _reminders.map((e) => jsonEncode(e.toJson())).toList();
+    await box.put('scheduled_reminders', data);
+  }
+  
+  void _setReminder() async {
+    // Request permissions
+    await NotificationService().requestPermissions();
+
+    // 1. Pick Date
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Color(0xFF4A90E2)),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate == null) return;
+
+    // 2. Pick Time
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Color(0xFF4A90E2)),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedTime == null) return;
+
+    // 3. Enter Note
+    final noteController = TextEditingController();
+    final note = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Add Note"),
+        content: TextField(
+          controller: noteController,
+          decoration: const InputDecoration(
+            hintText: "e.g., Leg Day, Cardio...",
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Skip"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, noteController.text),
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+
+    // Combine Date & Time
+    final scheduledDateTime = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    
+    // Ensure it's in the future
+    if (scheduledDateTime.isBefore(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cannot schedule in the past!")),
+        );
+      }
+      return;
+    }
+
+    final reminderBody = (note != null && note.isNotEmpty) ? note : "Time to workout!";
+
+    // Schedule
+    // Using a simple generating ID based on time for now to allow multiple
+    final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await NotificationService().scheduleNotification(
+      scheduledDateTime,
+      "GymPal Reminder",
+      reminderBody,
+      id: id,
+    );
+    
+    // Add to list and save
+    final newReminder = Reminder(id: id, dateTime: scheduledDateTime, note: reminderBody);
+    setState(() {
+      _reminders.add(newReminder);
+      // Sort by date handy
+      _reminders.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    });
+    await _saveReminders();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Reminder set for ${DateFormat('MMM d, h:mm a').format(scheduledDateTime)}"),
+          backgroundColor: const Color(0xFF4A90E2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteReminder(Reminder reminder) async {
+    // Cancel notification
+    // fln cancel uses int id
+    await NotificationService().flutterLocalNotificationsPlugin.cancel(reminder.id);
+    
+    setState(() {
+      _reminders.removeWhere((r) => r.id == reminder.id);
+    });
+    await _saveReminders();
+    
+    if(mounted) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Reminder deleted")));
+    }
+  }
+
+  void _showRemindersList() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, controller) {
+           return Column(
+             children: [
+               const SizedBox(height: 12),
+               Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+               const Padding(
+                 padding: EdgeInsets.all(16.0),
+                 child: Text("Scheduled Reminders", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+               ),
+               Expanded(
+                 child: _reminders.isEmpty
+                     ? const Center(child: Text("No reminders set.", style: TextStyle(color: Colors.grey)))
+                     : ListView.builder(
+                         controller: controller,
+                         itemCount: _reminders.length,
+                         itemBuilder: (ctx, i) {
+                           final r = _reminders[i];
+                           return ListTile(
+                             leading: const Icon(Icons.notifications_active, color: Color(0xFF4A90E2)),
+                             title: Text(DateFormat('EEE, MMM d • h:mm a').format(r.dateTime)),
+                             subtitle: Text(r.note),
+                             trailing: IconButton(
+                               icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                               onPressed: () {
+                                 _deleteReminder(r);
+                                 // Ideally update the state inside this sheet? 
+                                 // Since the sheet is built from parent state, calling _deleteReminder (which calls setState) SHOULD rebuild the parent and thus the sheet?
+                                 // Actually bottom sheets can be tricky with parent setStates.
+                                 // Let's rely on Navigation.pop and re-open or use StatefulWidget wrapper if needed.
+                                 // But simple setState in parent usually rebuilds the sheet IF the sheet builder is part of the parent's build... wait, showModalBottomSheet builder is separate.
+                                 // To make the list update LIVE, we might need to wrap the sheet content in a StatefulBuilder OR just pop and re-open (clunky) OR use Provider.
+                                 // Simple fix: Wrap the content in `StatefulBuilder` and pass the *internal* setState to _delete, OR purely rely on parent rebuild if Flutter handles it (it often doesn't for imperative push).
+                                 // Actually, easiest way: Close sheet, delete, reopen? No.
+                                 // Better: Use `StatefulBuilder` inside the sheet.
+                                 Navigator.pop(ctx);
+                                 _deleteReminder(r);
+                                 _showRemindersList(); // Re-open (simple hack for instant update view)
+                               }, 
+                             ),
+                           );
+                         },
+                       ),
+               ),
+             ],
+           );
+        },
+      ),
+    );
+  }
+
+  void _showReminderOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.calendar_month, color: Color(0xFF4A90E2)),
+              title: const Text("Schedule Workout"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _setReminder();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.list_alt, color: Color(0xFF4A90E2)),
+              title: const Text("My Reminders"),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showRemindersList();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,8 +291,9 @@ class WorkoutListScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFF4A90E2)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddWorkoutScreen())),
+            icon: const Icon(Icons.alarm, color: Color(0xFF4A90E2)),
+            tooltip: "Workout Reminder",
+            onPressed: _showReminderOptions,
           ),
         ],
       ),

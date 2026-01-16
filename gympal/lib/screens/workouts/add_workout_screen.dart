@@ -87,71 +87,131 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
   void _showExerciseDialogWithInitial(String initialName) {
     final nameCtrl = TextEditingController(text: initialName);
     final setsCtrl = TextEditingController();
-    final repsCtrl = TextEditingController();
     final weightCtrl = TextEditingController();
+    
+    // For single reps mode
+    final repsCtrl = TextEditingController();
+    
+    // For individual reps mode
+    bool sameReps = true;
+    List<TextEditingController> indivRepCtrls = [];
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Exercise'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Exercise Name')),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: TextField(controller: setsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sets'))),
-                  const SizedBox(width: 10),
-                  Expanded(child: TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps'))),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(controller: weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight (kg)')),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setState2) => AlertDialog(
+          title: const Text('Add Exercise'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Exercise Name')),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: setsCtrl, 
+                        keyboardType: TextInputType.number, 
+                        decoration: const InputDecoration(labelText: 'Sets'),
+                        onChanged: (val) {
+                          final s = int.tryParse(val) ?? 0;
+                          setState2(() {
+                            // Sync indivRepCtrls list with sets number
+                            if (indivRepCtrls.length < s) {
+                              while (indivRepCtrls.length < s) {
+                                indivRepCtrls.add(TextEditingController());
+                              }
+                            } else if (indivRepCtrls.length > s) {
+                              indivRepCtrls.removeRange(s, indivRepCtrls.length);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: TextField(controller: weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight (kg)'))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: sameReps, 
+                      onChanged: (val) => setState2(() => sameReps = val ?? true),
+                    ),
+                    const Text('Same reps for all sets', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+                if (sameReps)
+                  TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps per set'))
+                else
+                  ...List.generate(indivRepCtrls.length, (index) => Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: TextField(
+                      controller: indivRepCtrls[index],
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Reps for Set ${index + 1}',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                    ),
+                  )),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final setsStr = setsCtrl.text.trim();
+                final sets = int.tryParse(setsStr);
+                final weight = double.tryParse(weightCtrl.text) ?? 0.0;
+
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter exercise name')));
+                  return;
+                }
+                if (sets == null || sets < 1 || sets > 100) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sets must be between 1 and 100')));
+                  return;
+                }
+
+                String finalReps = "";
+                if (sameReps) {
+                  final r = int.tryParse(repsCtrl.text);
+                  if (r == null || r < 1) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter valid reps')));
+                    return;
+                  }
+                  finalReps = r.toString();
+                } else {
+                  List<String> repList = [];
+                  for (var ctrl in indivRepCtrls) {
+                    final r = int.tryParse(ctrl.text);
+                    if (r == null || r < 1) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('One or more sets have invalid reps')));
+                      return;
+                    }
+                    repList.add(r.toString());
+                  }
+                  finalReps = repList.join(', ');
+                }
+
+                setState(() => _exercises.add(ExerciseModel(
+                  name: name, 
+                  sets: sets.toString(), 
+                  reps: finalReps, 
+                  weight: weight.toString()
+                )));
+                Navigator.pop(ctx);
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final name = nameCtrl.text.trim();
-              final sets = int.tryParse(setsCtrl.text);
-              final reps = int.tryParse(repsCtrl.text);
-              final weight = double.tryParse(weightCtrl.text) ?? 0.0;
-
-              if (name.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter exercise name')));
-                return;
-              }
-              if (name.length < 2) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Exercise name too short')));
-                return;
-              }
-              if (name.length > 100) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Exercise name too long')));
-                return;
-              }
-              if (sets == null || sets < 1 || sets > 100) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sets must be between 1 and 100')));
-                return;
-              }
-              if (reps == null || reps < 1 || reps > 1000) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reps must be between 1 and 1000')));
-                return;
-              }
-              if (weight < 0 || weight > 10000) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Weight must be a positive number')));
-                return;
-              }
-
-              setState(() => _exercises.add(ExerciseModel(name: name, sets: sets.toString(), reps: reps.toString(), weight: weight.toString())));
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -296,7 +356,7 @@ class _AddWorkoutScreenState extends State<AddWorkoutScreen> {
                           child: ListTile(
                             leading: CircleAvatar(child: Text('${i + 1}')),
                             title: Text(ex.name),
-                            subtitle: Text('${ex.sets} sets × ${ex.reps} reps • ${ex.weight}kg'),
+                            subtitle: Text('${ex.sets} sets × ${ex.reps.contains(',') ? '[${ex.reps}]' : ex.reps} reps • ${ex.weight}kg'),
                             trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => setState(() => _exercises.removeAt(i))),
                           ),
                         );

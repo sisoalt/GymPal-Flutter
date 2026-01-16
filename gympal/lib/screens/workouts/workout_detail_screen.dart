@@ -61,7 +61,7 @@ class WorkoutDetailScreen extends StatelessWidget {
                   child: Icon(Icons.fitness_center, color: Theme.of(context).colorScheme.onPrimary, size: 20),
                 ),
                 title: Text(ex.name, style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
-                subtitle: Text("${ex.sets} Sets  ×  ${ex.reps} Reps  @  ${ex.weight}kg", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7*255).round()))),
+                subtitle: Text("${ex.sets} Sets  ×  ${ex.reps.contains(',') ? '[${ex.reps}]' : ex.reps} Reps  @  ${ex.weight}kg", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withAlpha((0.7*255).round()))),
               ),
             )),
           ],

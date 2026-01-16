@@ -19,8 +19,12 @@ class AuthProvider extends ChangeNotifier {
     if (activeUsername != null) {
       final userBox = HiveService.userBox;
       try {
+        // Wait a small moment to ensure box is ready
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        final safeActiveUsername = activeUsername.toString().trim().toLowerCase();
         _currentUser = userBox.values.firstWhere(
-          (user) => user.username.trim().toLowerCase() == activeUsername.toString().trim().toLowerCase(),
+          (user) => user.username.trim().toLowerCase() == safeActiveUsername,
         );
 
         // Sync user's weight and height to settings if available
@@ -31,13 +35,14 @@ class AuthProvider extends ChangeNotifier {
           await settingsBox.put('user_height', _currentUser!.height!);
         }
       } catch (e) {
+        // If user not found, clear the invalid session
         await logout();
       }
     }
     notifyListeners();
   }
 
-  Future<String?> login(String username, String password) async {
+  Future<String?> login(String username, String password, {bool remember = false}) async {
     _setLoading(true);
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -48,14 +53,28 @@ class AuthProvider extends ChangeNotifier {
     final safePassword = password.trim();
 
     try {
+      final safeUsernameLower = safeUsername.toLowerCase();
+      final hashedPassword = _hashPassword(safePassword);
+      
       final user = userBox.values.firstWhere(
         (u) => 
-          u.username.trim().toLowerCase() == safeUsername.toLowerCase() && 
-          u.password == _hashPassword(safePassword),
+          u.username.trim().toLowerCase() == safeUsernameLower && 
+          u.password == hashedPassword,
       );
 
       _currentUser = user;
       await settingsBox.put('active_user_session', user.username);
+
+      // Credential persistence (Remember Me)
+      if (remember) {
+        await settingsBox.put('remembered_username', safeUsername);
+        await settingsBox.put('remembered_password', safePassword);
+        await settingsBox.put('remember_me', true);
+      } else {
+        await settingsBox.delete('remembered_username');
+        await settingsBox.delete('remembered_password');
+        await settingsBox.put('remember_me', false);
+      }
 
       // Sync user's weight and height to settings if available
       if (user.weight != null) {
@@ -65,12 +84,23 @@ class AuthProvider extends ChangeNotifier {
         await settingsBox.put('user_height', user.height!);
       }
 
+      await settingsBox.flush();
+
       _setLoading(false);
       return null;
     } catch (e) {
       _setLoading(false);
       return "Invalid username or password";
     }
+  }
+
+  Map<String, dynamic> getRememberedCredentials() {
+    final settingsBox = HiveService.settingsBox;
+    return {
+      'username': settingsBox.get('remembered_username') ?? '',
+      'password': settingsBox.get('remembered_password') ?? '',
+      'rememberMe': settingsBox.get('remember_me') ?? false,
+    };
   }
 
   Future<String?> register(UserModel newUser) async {
@@ -91,6 +121,13 @@ class AuthProvider extends ChangeNotifier {
 
     // Hash the password before storing
     newUser.password = _hashPassword(newUser.password.trim());
+    if (newUser.securityAnswer != null) {
+      newUser.securityAnswer = _hashPassword(newUser.securityAnswer!.trim().toLowerCase()); // Normalize answer
+    }
+    if (newUser.pin != null) {
+      newUser.pin = _hashPassword(newUser.pin!.trim());
+    }
+
     await userBox.add(newUser);
     _currentUser = newUser;
     await settingsBox.put('active_user_session', newUser.username);
@@ -103,8 +140,41 @@ class AuthProvider extends ChangeNotifier {
       await settingsBox.put('user_height', newUser.height!);
     }
 
+    await userBox.flush();
+    await settingsBox.flush();
+
     _setLoading(false);
     return null;
+  }
+
+  // Verification Methods
+  UserModel? getUserByUsername(String username) {
+    final userBox = HiveService.userBox;
+    try {
+      return userBox.values.firstWhere(
+        (u) => u.username.trim().toLowerCase() == username.trim().toLowerCase(),
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
+  bool verifySecurityAnswer(String username, String answer) {
+    final user = getUserByUsername(username);
+    if (user == null || user.securityAnswer == null) return false;
+    return user.securityAnswer == _hashPassword(answer.trim().toLowerCase());
+  }
+
+  bool verifyPin(String username, String pin) {
+    final user = getUserByUsername(username);
+    if (user == null || user.pin == null) return false;
+    return user.pin == _hashPassword(pin.trim());
+  }
+  
+  bool verifyAge(String username, int age) {
+    final user = getUserByUsername(username);
+    if (user == null) return false;
+    return user.age == age;
   }
 
   // --- THIS IS THE MISSING METHOD ---
