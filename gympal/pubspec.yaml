@@ -28,6 +28,7 @@ dependencies:
 
   # UI Icons (Optional but standard)
   cupertino_icons: ^1.0.6
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

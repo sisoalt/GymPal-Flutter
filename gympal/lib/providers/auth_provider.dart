@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/models/user_model.dart';
 import '../data/services/hive_service.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
@@ -18,7 +20,7 @@ class AuthProvider extends ChangeNotifier {
       final userBox = HiveService.userBox;
       try {
         _currentUser = userBox.values.firstWhere(
-          (user) => user.username == activeUsername,
+          (user) => user.username.trim().toLowerCase() == activeUsername.toString().trim().toLowerCase(),
         );
 
         // Sync user's weight and height to settings if available
@@ -42,13 +44,18 @@ class AuthProvider extends ChangeNotifier {
     final userBox = HiveService.userBox;
     final settingsBox = HiveService.settingsBox;
 
+    final safeUsername = username.trim();
+    final safePassword = password.trim();
+
     try {
       final user = userBox.values.firstWhere(
-        (u) => u.username == username && u.password == password,
+        (u) => 
+          u.username.trim().toLowerCase() == safeUsername.toLowerCase() && 
+          u.password == _hashPassword(safePassword),
       );
 
       _currentUser = user;
-      await settingsBox.put('active_user_session', username);
+      await settingsBox.put('active_user_session', user.username);
 
       // Sync user's weight and height to settings if available
       if (user.weight != null) {
@@ -71,13 +78,19 @@ class AuthProvider extends ChangeNotifier {
     final userBox = HiveService.userBox;
     final settingsBox = HiveService.settingsBox;
 
-    final exists = userBox.values.any((u) => u.username == newUser.username);
+    final safeUsername = newUser.username.trim();
+    
+    final exists = userBox.values.any(
+      (u) => u.username.trim().toLowerCase() == safeUsername.toLowerCase()
+    );
 
     if (exists) {
       _setLoading(false);
       return "Username already taken";
     }
 
+    // Hash the password before storing
+    newUser.password = _hashPassword(newUser.password.trim());
     await userBox.add(newUser);
     _currentUser = newUser;
     await settingsBox.put('active_user_session', newUser.username);
@@ -144,7 +157,7 @@ class AuthProvider extends ChangeNotifier {
         orElse: () => throw Exception("User not found"),
       );
 
-      user.password = newPassword;
+      user.password = _hashPassword(newPassword);
       await user.save();
       
       _setLoading(false);
@@ -164,13 +177,13 @@ class AuthProvider extends ChangeNotifier {
       return "No active session";
     }
 
-    if (_currentUser!.password != currentPassword) {
+    if (_currentUser!.password != _hashPassword(currentPassword)) {
       _setLoading(false);
       return "Incorrect current password";
     }
 
     try {
-      _currentUser!.password = newPassword;
+      _currentUser!.password = _hashPassword(newPassword);
       await _currentUser!.save();
       _setLoading(false);
       return null;
@@ -190,5 +203,11 @@ class AuthProvider extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+
+  String _hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 }
