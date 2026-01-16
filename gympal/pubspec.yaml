@@ -29,6 +29,10 @@ dependencies:
   # UI Icons (Optional but standard)
   cupertino_icons: ^1.0.6
   crypto: ^3.0.7
+  flutter_local_notifications: ^19.5.0
+  timezone: ^0.10.1
+  flutter_timezone: ^5.0.1
+  fl_chart: ^0.66.2
 
 dev_dependencies:
   flutter_test:

@@ -21,13 +21,14 @@ class ProgressModelAdapter extends TypeAdapter<ProgressModel> {
       weight: fields[1] as double,
       photoPath: fields[2] as String?,
       notes: fields[3] as String,
+      photoPaths: (fields[4] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, ProgressModel obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.date)
       ..writeByte(1)
@@ -35,7 +36,9 @@ class ProgressModelAdapter extends TypeAdapter<ProgressModel> {
       ..writeByte(2)
       ..write(obj.photoPath)
       ..writeByte(3)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(4)
+      ..write(obj.photoPaths);
   }
 
   @override

@@ -11,15 +11,19 @@ class ProgressModel extends HiveObject {
   final double weight;
 
   @HiveField(2)
-  final String? photoPath; // Local path to the image file
+  final String? photoPath; // Keeping for backward compatibility
 
   @HiveField(3)
   final String notes;
+
+  @HiveField(4)
+  final List<String>? photoPaths; // Multiple photos support
 
   ProgressModel({
     required this.date,
     required this.weight,
     this.photoPath,
     this.notes = '',
+    this.photoPaths,
   });
 }

@@ -24,8 +24,18 @@ class UserModel extends HiveObject {
 
   @HiveField(6)
   double? weight; // in kg
+  
   @HiveField(7)
   String? profileImagePath;
+
+  @HiveField(8)
+  String? securityQuestion;
+
+  @HiveField(9)
+  String? securityAnswer;
+
+  @HiveField(10)
+  String? pin;
 
   UserModel({
     required this.username,
@@ -36,6 +46,9 @@ class UserModel extends HiveObject {
     this.height,
     this.weight,
     this.profileImagePath,
+    this.securityQuestion,
+    this.securityAnswer,
+    this.pin,
   });
 
   // Calculate BMI
