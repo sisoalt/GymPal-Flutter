@@ -43,11 +43,12 @@ class ProgressScreen extends StatelessWidget {
           children: [
             _buildGoalCard(context),
             const SizedBox(height: 16),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _buildBMICard(context)),
-                const SizedBox(width: 16),
-                Expanded(child: _buildConsistencyCard(context)),
+                _buildBMICard(context),
+                const SizedBox(height: 16),
+                _buildConsistencyCard(context),
               ],
             ),
             const SizedBox(height: 16),
